@@ -10,11 +10,11 @@ export const gridCameraSchema = z.object({
   columns: z.number().min(1).max(40).default(12).describe('1列あたりの最大文字数'),
   tileSize: z.number().min(20).max(260).default(140).describe('文字サイズ(px)'),
   gap: z.number().min(0).max(120).default(40).describe('文字間隔(px)'),
+  speedFactor: z.number().min(0.1).max(5).default(1).describe('進行スピード倍率'),
 });
 
 export type GridCameraProps = z.infer<typeof gridCameraSchema>;
 
-const FRAMES_PER_CHAR = 20;
 const CAMERA_SPRING = {damping: 16, stiffness: 210, mass: 0.8};
 
 const seededRandom = (seed: number) => {
@@ -114,26 +114,51 @@ export const GridCamera: React.FC<GridCameraProps> = ({
   columns,
   tileSize,
   gap,
+  speedFactor,
 }) => {
   const frame = useCurrentFrame();
-  const {width, height, fps} = useVideoConfig();
+  const {width, height, fps, durationInFrames} = useVideoConfig();
   const chars = useMemo(() => layoutChars(text, columns, tileSize, gap), [text, columns, tileSize, gap]);
 
   if (chars.length === 0) {
     return <AbsoluteFill style={{backgroundColor: '#fff'}} />;
   }
 
-  const targetIndex = Math.min(chars.length - 1, Math.floor(frame / FRAMES_PER_CHAR));
-  const targetChar = chars[targetIndex];
-  const targetX = targetChar.x;
-  const targetY = targetChar.y;
-
+  const safeCharCount = Math.max(1, chars.length);
+  const derivedFramesPerChar = (durationInFrames / safeCharCount) / Math.max(0.1, speedFactor);
+  const safeFramesPerChar = Math.max(4, Number.isFinite(derivedFramesPerChar) ? derivedFramesPerChar : 4);
+  const rawProgress = frame / safeFramesPerChar;
+  const clampedProgress = Number.isFinite(rawProgress) ? rawProgress : 0;
+  const baseProgress = Math.min(
+    chars.length - 1,
+    Math.max(0, clampedProgress),
+  );
+  const cameraProgress = spring({
+    frame,
+    fps,
+    config: CAMERA_SPRING,
+    to: baseProgress,
+  });
+  const lowerIndex = Math.floor(cameraProgress);
+  const upperIndex = Math.min(chars.length - 1, lowerIndex + 1);
+  const lerpT = cameraProgress - lowerIndex;
+  const startChar = chars[lowerIndex];
+  const endChar = chars[upperIndex];
+  const targetX = startChar.x + (endChar.x - startChar.x) * lerpT;
+  const targetY = startChar.y + (endChar.y - startChar.y) * lerpT;
   const cameraX = spring({frame, fps, config: CAMERA_SPRING, to: targetX});
   const cameraY = spring({frame, fps, config: CAMERA_SPRING, to: targetY});
+  const highlightIndex = Math.round(cameraProgress);
+  const clampedHighlight = Math.min(chars.length - 1, highlightIndex);
 
-  const zoomTarget = targetChar.char.match(/[A-Z]/i) ? 1.6 : 1.1;
+  const zoomTarget = chars[clampedHighlight].char.match(/[A-Z]/i) ? 1.6 : 1.1;
   const cameraZoom = spring({frame, fps, config: CAMERA_SPRING, to: zoomTarget});
-  const cameraAngle = spring({frame, fps, config: CAMERA_SPRING, to: (Math.floor(targetIndex / 4) % 2 === 0 ? 15 : -15)});
+  const cameraAngle = spring({
+    frame,
+    fps,
+    config: CAMERA_SPRING,
+    to: Math.floor(clampedHighlight / 4) % 2 === 0 ? 15 : -15,
+  });
 
   const transform = `translate(${width / 2}px, ${height / 2}px)
     rotate(${-cameraAngle}deg)
@@ -156,7 +181,7 @@ export const GridCamera: React.FC<GridCameraProps> = ({
       >
         <NoiseLayer count={50} spread={Math.max(width, height) * 2} heightStep={tileSize + gap} />
         {chars.map((charData, idx) => {
-          const isActive = idx === targetIndex;
+          const isActive = idx === clampedHighlight;
           return (
             <div
               key={`${charData.char}-${idx}`}
@@ -188,4 +213,5 @@ export const gridCameraDefaultProps: GridCameraProps = {
   columns: 10,
   tileSize: 140,
   gap: 60,
+  speedFactor: 1,
 };

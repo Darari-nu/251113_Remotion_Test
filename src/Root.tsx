@@ -83,6 +83,7 @@ export const RemotionRoot: React.FC = () => {
           columns: 3,
           tileSize: 200,
           gap: 30,
+          speedFactor: 1,
         }}
       />
     </>
