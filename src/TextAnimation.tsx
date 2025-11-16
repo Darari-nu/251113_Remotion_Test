@@ -2,9 +2,14 @@ import type {CSSProperties} from 'react';
 import {AbsoluteFill, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {z} from 'zod';
 
-const DROP_DISTANCE_PERCENT = 100;
+const DROP_DISTANCE_PERCENT = 160;
 const RANDOM_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&*@!?';
 const fontPresetOptions = ['モダンゴシック', 'シネマサンセリフ', 'サイバーモノ', 'クラシックセリフ'] as const;
+
+const seededRandom = (seed: number) => {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
 
 const hexColor = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
@@ -77,27 +82,86 @@ export const textAnimationSchema = z.object({
     .describe('③ アニメーション設定'),
   エフェクト設定: z
     .object({
-      デコードフレーム数: z
-        .number()
-        .min(0, '0以上にしてね')
-        .max(30, '30フレームまでよ')
-        .describe('デコード演出フレーム数'),
-      ブラー強度: z
-        .number()
-        .min(0, '0以上にしてね')
-        .max(40, '40pxまでよ')
-        .describe('ブラー量(px)'),
-      ブラー拡大率: z
-        .number()
-        .min(1, '1以上にしてね')
-        .max(2, '2までにしてね')
-        .describe('ブラー時の拡大率'),
-      フリップ有効: z.boolean().describe('3DフリップON/OFF'),
-      フリップ遅延: z
-        .number()
-        .min(0, '0以上にしてね')
-        .max(20, '20フレームまでよ')
-        .describe('フリップ追加遅延(フレーム)'),
+      デコード: z
+        .object({
+          有効: z.boolean().describe('デコードON/OFF'),
+          フレーム数: z
+            .number()
+            .min(0, '0以上にしてね')
+            .max(30, '30フレームまでよ')
+            .describe('デコード演出フレーム数'),
+        })
+        .describe('④-1 デコード（解読エフェクト）'),
+      ブラーイン: z
+        .object({
+          有効: z.boolean().describe('ブラーインON/OFF'),
+          強度: z
+            .number()
+            .min(0, '0以上にしてね')
+            .max(40, '40pxまでよ')
+            .describe('ブラー量(px)'),
+          拡大率: z
+            .number()
+            .min(1, '1以上にしてね')
+            .max(2, '2までにしてね')
+            .describe('ブラー時の拡大率'),
+        })
+        .describe('④-2 ブラーイン（ぼかし着地）'),
+      フリップ: z
+        .object({
+          有効: z.boolean().describe('3DフリップON/OFF'),
+          追加遅延: z
+            .number()
+            .min(0, '0以上にしてね')
+            .max(20, '20フレームまでよ')
+            .describe('フリップ追加遅延(フレーム)'),
+        })
+        .describe('④-3 フリップ（3D起き上がり）'),
+      スイング: z
+        .object({
+          有効: z.boolean().describe('ぶらさがりON/OFF'),
+          初期高さ: z
+            .number()
+            .min(50, '50px以上にしてね')
+            .max(400, '400pxまでよ')
+            .describe('開始高さ(px)'),
+          横揺れ幅: z
+            .number()
+            .min(0, '0以上にしてね')
+            .max(20, '20pxまでよ')
+            .describe('横揺れ幅(px)'),
+          縦揺れ幅: z
+            .number()
+            .min(0, '0以上にしてね')
+            .max(40, '40pxまでよ')
+            .describe('縦揺れ幅(px)'),
+          揺れ減衰: z
+            .number()
+            .min(5, '5以上にしてね')
+            .max(60, '60までよ')
+            .describe('揺れ減衰（大きいほどゆっくり）'),
+          質量: z
+            .number()
+            .min(0.5, '0.5以上にしてね')
+            .max(3, '3までにしてね')
+            .describe('スプリング質量'),
+          減衰: z
+            .number()
+            .min(4, '4以上にしてね')
+            .max(15, '15までにしてね')
+            .describe('スプリング減衰'),
+          剛性: z
+            .number()
+            .min(15, '15以上にしてね')
+            .max(60, '60までにしてね')
+            .describe('スプリング剛性'),
+          配置ランダム幅: z
+            .number()
+            .min(0, '0以上にしてね')
+            .max(200, '200pxまでよ')
+            .describe('縦位置ランダム幅(px)'),
+        })
+        .describe('④-4 スイング（糸で吊られる動き）'),
     })
     .describe('④ エフェクト設定'),
 });
@@ -132,11 +196,30 @@ export const textAnimationDefaultProps: TextAnimationProps = {
     スプリング剛性: 20,
   },
   エフェクト設定: {
-    デコードフレーム数: 12,
-    ブラー強度: 20,
-    ブラー拡大率: 1.4,
-    フリップ有効: true,
-    フリップ遅延: 2,
+    デコード: {
+      有効: true,
+      フレーム数: 12,
+    },
+    ブラーイン: {
+      有効: true,
+      強度: 20,
+      拡大率: 1.4,
+    },
+    フリップ: {
+      有効: true,
+      追加遅延: 2,
+    },
+    スイング: {
+      有効: true,
+      初期高さ: 220,
+      横揺れ幅: 5,
+      縦揺れ幅: 18,
+      揺れ減衰: 22,
+      質量: 1.2,
+      減衰: 7,
+      剛性: 32,
+      配置ランダム幅: 60,
+    },
   },
 };
 
@@ -165,7 +248,7 @@ const textWrapperStyle = (
 
 export const TextAnimation: React.FC<TextAnimationProps> = (props) => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
+  const {fps, height: videoHeight} = useVideoConfig();
   const textSetting = props['テキスト設定'];
   const appearance = props['ビジュアル調整'];
   const animation = props['アニメーション設定'];
@@ -183,12 +266,25 @@ export const TextAnimation: React.FC<TextAnimationProps> = (props) => {
   const springMass = animation.スプリング質量;
   const springDamping = animation.スプリング減衰;
   const springStiffness = animation.スプリング剛性;
-  const scrambleFrames = effect.デコードフレーム数;
-  const blurStrength = effect.ブラー強度;
-  const blurScale = effect.ブラー拡大率;
-  const flipEnabled = effect.フリップ有効;
-  const flipDelay = effect.フリップ遅延;
-  const characters = Array.from(text);
+  const decodeEffect = effect.デコード;
+  const blurEffect = effect.ブラーイン;
+  const flipEffect = effect.フリップ;
+  const swingEffect = effect.スイング;
+  const scrambleFrames = decodeEffect?.有効 ? decodeEffect.フレーム数 : 0;
+  const blurStrength = blurEffect?.有効 ? blurEffect.強度 : 0;
+  const blurScale = blurEffect?.有効 ? blurEffect.拡大率 : 1;
+  const flipEnabled = flipEffect?.有効 ?? false;
+  const flipDelay = flipEffect?.追加遅延 ?? 0;
+  const swingEnabled = swingEffect?.有効 ?? false;
+  const swingVariance = swingEffect?.配置ランダム幅 ?? 0;
+  const characters = Array.from(text).map((char, index) => ({
+    char,
+    variance:
+      swingVariance > 0
+        ? (seededRandom(index + 1) - 0.5) * 2 * swingVariance
+        : 0,
+  }));
+  const verticalOffset = swingEnabled ? videoHeight * 0.2 : 0;
 
   const getScrambledChar = (original: string, currentFrame: number, startFrame: number) => {
     if (scrambleFrames <= 0) {
@@ -211,8 +307,9 @@ export const TextAnimation: React.FC<TextAnimationProps> = (props) => {
     <AbsoluteFill
       style={{
         backgroundColor,
-        justifyContent: 'center',
+        justifyContent: swingEnabled ? 'flex-start' : 'center',
         alignItems: 'center',
+        paddingTop: swingEnabled ? videoHeight * 0.05 : 0,
       }}
     >
       <div
@@ -220,9 +317,10 @@ export const TextAnimation: React.FC<TextAnimationProps> = (props) => {
           ...textWrapperStyle(fontSize, fontColor, fontFamily),
           perspective: 1000,
           transformStyle: 'preserve-3d',
+          transform: swingEnabled ? `translateY(${-verticalOffset}px)` : undefined,
         }}
       >
-        {characters.map((char, index) => {
+        {characters.map(({char, variance}, index) => {
           if (char === ' ') {
             return (
               <span
@@ -249,7 +347,39 @@ export const TextAnimation: React.FC<TextAnimationProps> = (props) => {
             delay: charDelay,
           });
 
-          const translateY = (1 - progress) * DROP_DISTANCE_PERCENT;
+          let translateYPx: number;
+          let dropDistance = videoHeight / 2 + fontSize * 1.5;
+          let swingXOffset = 0;
+          let swingOpacity = 1;
+          if (swingEnabled) {
+            const dropSpringRaw = spring({
+              frame,
+              fps,
+              config: {
+                damping: swingEffect.減衰,
+                stiffness: swingEffect.剛性,
+                mass: swingEffect.質量,
+              },
+              durationInFrames: Math.max(
+                entryDuration * 2,
+                Math.floor(swingEffect.揺れ減衰 / 2),
+              ),
+              delay: charDelay,
+            });
+            const dropSpring = Math.min(Math.max(dropSpringRaw, 0), 1);
+            const screenOffset = videoHeight / 2 + fontSize;
+            dropDistance = Math.max(swingEffect.初期高さ, screenOffset);
+            const dropPosition = -dropDistance + dropSpring * dropDistance;
+            const hangFrames = Math.max(0, frame - (charDelay + entryDuration));
+            const decay = Math.exp(-hangFrames / swingEffect.揺れ減衰);
+            const swingYOffset = swingEffect.縦揺れ幅 * decay * Math.sin((frame + index * 4) * 0.12);
+            swingXOffset = swingEffect.横揺れ幅 * decay * Math.sin((frame + index * 6) * 0.1);
+            translateYPx = dropPosition + swingYOffset;
+            swingOpacity = Math.min(1, dropSpring + 0.3);
+          } else {
+            const fallbackDistance = dropDistance;
+            translateYPx = -fallbackDistance + progress * fallbackDistance;
+          }
           const shake =
             shakeAmplitude *
             Math.sin((frame + index * 4) * (Math.PI / 15) * shakeFrequency);
@@ -269,8 +399,56 @@ export const TextAnimation: React.FC<TextAnimationProps> = (props) => {
           const rotateX = flipEnabled ? (1 - flipProgress) * 90 : 0;
           const blurValue = blurStrength > 0 ? blurStrength * (1 - progress) : 0;
           const scaleValue = blurStrength > 0 ? blurScale - (blurScale - 1) * progress : 1;
-          const opacity = blurStrength > 0 ? progress : 1;
+          const opacity = (blurStrength > 0 ? progress : 1) * swingOpacity;
+          const baseDrop = dropDistance + translateYPx;
+          const offsetY = baseDrop + variance;
           const displayChar = getScrambledChar(char, frame, charDelay);
+          const totalX = shake + swingXOffset;
+
+          if (swingEnabled) {
+            const ropeLength = Math.max(0, dropDistance + translateYPx);
+            return (
+              <span
+                key={`${char}-${index}`}
+                style={{
+                  display: 'inline-flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 8,
+                  height: 'auto',
+                  verticalAlign: 'baseline',
+                }}
+              >
+                <span
+                  style={{
+                    width: 3,
+                    height: Math.max(0, offsetY),
+                    background:
+                      'linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.2))',
+                    borderRadius: 999,
+                    display: 'inline-block',
+                    boxShadow: '0 0 6px rgba(0,0,0,0.2)',
+                  }}
+                />
+                <span
+                  style={{
+                    display: 'inline-block',
+                    transform: `translate(${totalX}px, ${translateYPx}px) scale(${scaleValue}) rotateX(${rotateX}deg)`,
+                    transformOrigin: 'bottom',
+                    lineHeight: 1.3,
+                    filter: `blur(${blurValue}px)`,
+                    opacity,
+                    fontFamily:
+                      blurStrength > 0
+                        ? `${fontFamily}, "Roboto Mono", monospace`
+                        : fontFamily,
+                  }}
+                >
+                  {displayChar}
+                </span>
+              </span>
+            );
+          }
 
           return (
             <span
@@ -283,24 +461,24 @@ export const TextAnimation: React.FC<TextAnimationProps> = (props) => {
                 paddingBottom: Math.max(fontSize * 0.08, 6),
                 verticalAlign: 'baseline',
               }}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  transform: `translate(${totalX}px, ${translateYPx + variance}px) scale(${scaleValue}) rotateX(${rotateX}deg)`,
+                  transformOrigin: 'bottom',
+                  lineHeight: 1.3,
+                  filter: `blur(${blurValue}px)`,
+                  opacity,
+                  fontFamily:
+                    blurStrength > 0
+                      ? `${fontFamily}, "Roboto Mono", monospace`
+                      : fontFamily,
+                }}
               >
-                <span
-                  style={{
-                    display: 'inline-block',
-                    transform: `translate(${shake}px, ${translateY}%) scale(${scaleValue}) rotateX(${rotateX}deg)`,
-                    transformOrigin: 'bottom',
-                    lineHeight: 1.3,
-                    filter: `blur(${blurValue}px)`,
-                    opacity,
-                    fontFamily:
-                      blurStrength > 0
-                        ? '"Roboto Mono", "Noto Sans JP", monospace'
-                        : fontFamily,
-                  }}
-                >
-                  {displayChar}
-                </span>
+                {displayChar}
               </span>
+            </span>
           );
         })}
       </div>
