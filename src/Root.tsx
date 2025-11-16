@@ -1,4 +1,5 @@
 import { Composition } from "remotion";
+import { GridCamera, gridCameraSchema } from "./GridCamera";
 import { TextAnimation, textAnimationSchema } from "./TextAnimation";
 
 export const RemotionRoot: React.FC = () => {
@@ -54,7 +55,34 @@ export const RemotionRoot: React.FC = () => {
               剛性: 32,
               配置ランダム幅: 60,
             },
+            グリッド演出: {
+              有効: false,
+              単語リスト: ['風', 'に', 'さら', 'わ', 'れ', '夜', 'を', '裂く'],
+              列数: 3,
+              タイルサイズ: 150,
+              タイル間隔: 60,
+              表示フレーム: 24,
+              バリエーション強度: 0.18,
+            },
           },
+        }}
+      />
+      <Composition
+        id="GridCamera"
+        component={GridCamera}
+        durationInFrames={690}
+        fps={30}
+        width={1920}
+        height={1080}
+        schema={gridCameraSchema}
+        defaultProps={{
+          text: "Crypto Ninja Coffee Time",
+          tileColor: "#1c1c1c",
+          activeTileColor: "#ffc857",
+          textColor: "#ffffff",
+          columns: 3,
+          tileSize: 200,
+          gap: 30,
         }}
       />
     </>

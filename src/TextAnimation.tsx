@@ -1,5 +1,6 @@
 import type {CSSProperties} from 'react';
 import {AbsoluteFill, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {GridSystem} from './GridSystem';
 import {z} from 'zod';
 
 const DROP_DISTANCE_PERCENT = 160;
@@ -162,6 +163,40 @@ export const textAnimationSchema = z.object({
             .describe('縦位置ランダム幅(px)'),
         })
         .describe('④-4 スイング（糸で吊られる動き）'),
+      グリッド演出: z
+        .object({
+          有効: z.boolean().describe('グリッド演出ON/OFF'),
+          単語リスト: z
+            .array(z.string().min(1))
+            .min(1, '1単語以上必要よ')
+            .describe('表示する単語配列'),
+          列数: z
+            .number()
+            .min(1, '1列以上にしてね')
+            .max(8, '8列までよ')
+            .describe('列数'),
+          タイルサイズ: z
+            .number()
+            .min(60, '60px以上にしてね')
+            .max(240, '240pxまでよ')
+            .describe('タイルサイズ(px)'),
+          タイル間隔: z
+            .number()
+            .min(0, '0以上にしてね')
+            .max(200, '200pxまでよ')
+            .describe('タイル間隔(px)'),
+          表示フレーム: z
+            .number()
+            .min(5, '5フレーム以上にしてね')
+            .max(180, '180フレームまでよ')
+            .describe('単語1つを追うフレーム数'),
+          バリエーション強度: z
+            .number()
+            .min(0, '0以上にしてね')
+            .max(0.5, '0.5までよ')
+            .describe('ズーム/回転の強さ'),
+        })
+        .describe('④-5 グリッド演出（TextAlive風）'),
     })
     .describe('④ エフェクト設定'),
 });
@@ -220,6 +255,15 @@ export const textAnimationDefaultProps: TextAnimationProps = {
       剛性: 32,
       配置ランダム幅: 60,
     },
+    グリッド演出: {
+      有効: false,
+      単語リスト: ['風', 'に', 'さら', 'わ', 'れ', '夜', 'を', '裂く'],
+      列数: 3,
+      タイルサイズ: 150,
+      タイル間隔: 60,
+      表示フレーム: 24,
+      バリエーション強度: 0.18,
+    },
   },
 };
 
@@ -276,7 +320,21 @@ export const TextAnimation: React.FC<TextAnimationProps> = (props) => {
   const flipEnabled = flipEffect?.有効 ?? false;
   const flipDelay = flipEffect?.追加遅延 ?? 0;
   const swingEnabled = swingEffect?.有効 ?? false;
-  const swingVariance = swingEffect?.配置ランダム幅 ?? 0;
+  const swingVariance = swingEnabled ? swingEffect?.配置ランダム幅 ?? 0 : 0;
+  const gridEffect = effect.グリッド演出;
+  if (gridEffect?.有効 && (gridEffect.単語リスト?.length ?? 0) > 0) {
+    return (
+      <GridSystem
+        words={gridEffect.単語リスト}
+        columns={gridEffect.列数}
+        tileSize={gridEffect.タイルサイズ}
+        gap={gridEffect.タイル間隔}
+        wordHoldFrames={gridEffect.表示フレーム}
+        variationIntensity={gridEffect.バリエーション強度}
+      />
+    );
+  }
+
   const characters = Array.from(text).map((char, index) => ({
     char,
     variance:
