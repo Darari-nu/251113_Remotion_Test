@@ -57,7 +57,7 @@ export const RemotionRoot: React.FC = () => {
             },
             グリッド演出: {
               有効: false,
-              単語リスト: ['風', 'に', 'さら', 'わ', 'れ', '夜', 'を', '裂く'],
+              単語リスト: ["風", "に", "さら", "わ", "れ", "夜", "を", "裂く"],
               列数: 3,
               タイルサイズ: 150,
               タイル間隔: 60,
@@ -81,9 +81,9 @@ export const RemotionRoot: React.FC = () => {
           activeTileColor: "#ffc857",
           textColor: "#ffffff",
           columns: 3,
-          tileSize: 200,
-          gap: 30,
-          speedFactor: 1,
+          tileSize: 221,
+          gap: 12,
+          speedFactor: 3,
         }}
       />
     </>
